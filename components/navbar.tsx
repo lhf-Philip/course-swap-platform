@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server"
 import { Button } from "@/components/ui/button"
 import { redirect } from "next/navigation"
 import SignOutButton from "@/components/sign-out-button"
+import FeedbackButton from "@/components/feedback-button"
 
 export default async function Navbar() {
   const supabase = await createClient()
@@ -30,6 +31,7 @@ export default async function Navbar() {
                 </Button>
               </Link>
               <span className="text-sm text-gray-500">{user.email}</span>
+              <FeedbackButton />
               <SignOutButton />
             </>
           ) : (

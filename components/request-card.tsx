@@ -27,7 +27,7 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
   const supabase = createClient()
   const isOwnRequest = currentUserId === request.user_id
   const contactMethod = request.profiles?.contact_method || 'Email'
-  const contactDetail = request.profiles?.contact_detail || 'No contact info'
+  const contactDetail = request.profiles?.contact_detail || request.profiles?.email || 'No contact info'
   
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState("")

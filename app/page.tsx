@@ -27,7 +27,7 @@ export default async function Home({
     .from('swap_requests')
     .select(`
       *,
-      profiles:user_id (contact_method, contact_detail)
+      profiles:user_id (contact_method, contact_detail, email), 
       // 注意：不再需要查詢 course_sections，因為資料已經存入 JSONB
     `)
     .eq('status', 'OPEN')
