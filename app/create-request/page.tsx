@@ -6,15 +6,17 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { X, Gem, Plus, Trash2, Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, X, Gem, Plus, Trash2, HelpCircle, BookOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import Link from "next/link"
 
-// === Tag Input Component ===
+// === Helper Component: Tag Input ===
 function TagInput({ placeholder, tags, setTags, maxTags }: any) {
   const [input, setInput] = useState("")
   const addTag = () => {
@@ -81,7 +83,6 @@ export default function CreateRequestPage() {
     f()
   }, [])
 
-  // Actions
   const addHaveItem = () => {
     if (haveCode.length === 0 || haveGroup.length === 0) { toast.error("請輸入科目和班別"); return }
     const newItem = {
@@ -133,8 +134,48 @@ export default function CreateRequestPage() {
   return (
     <div className="container mx-auto py-10 px-4 max-w-2xl">
       <Card className="relative overflow-visible">
-        <Link href="/" className="absolute right-4 top-4 p-2 text-gray-500 hover:text-black hover:bg-slate-100 rounded-full transition-colors z-50"><X size={24} /></Link>
-        <CardHeader><CardTitle>建立交換請求</CardTitle></CardHeader>
+        {/* X Close Button */}
+        <Link href="/" className="absolute right-4 top-4 p-2 text-gray-500 hover:text-black hover:bg-slate-100 rounded-full transition-colors z-50">
+          <X size={24} />
+        </Link>
+
+        <CardHeader className="flex flex-row items-center justify-center relative">
+          <CardTitle className="text-2xl">建立交換請求</CardTitle>
+          
+          {/* Help Modal Trigger */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="absolute left-4 top-4 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                <HelpCircle size={24} />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <BookOpen className="text-blue-600"/> 使用教學
+                </DialogTitle>
+                <DialogDescription>
+                  只需三個步驟，輕鬆發布你的交換需求。
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4 text-sm text-gray-700">
+                <div className="bg-slate-50 p-3 rounded-lg border">
+                  <strong className="text-slate-900 block mb-1">1. 我持有的課堂 (Have)</strong>
+                  選擇你目前手上的科目，並輸入班別（例如 B01A）。你可以添加多個持有課堂。
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                  <strong className="text-blue-900 block mb-1">2. 我想要的課堂 (Want)</strong>
+                  選擇你想換的科目，並輸入你接受的班別（例如 201, Tut A）。輸入 "ANY" 代表任何班別都接受。
+                </div>
+                <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                  <strong className="text-amber-900 block mb-1">3. 報酬 (Optional)</strong>
+                  提供免費午餐或小費可以增加交換成功的機率喔！
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+
         <CardContent className="space-y-8">
           
           {/* Have */}
