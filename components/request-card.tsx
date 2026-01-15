@@ -17,6 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { deleteRequest, closeRequest } from "@/app/actions"
+import Link from "next/link"
+import { Edit } from "lucide-react"
 
 type RequestCardProps = {
   request: any
@@ -99,6 +101,12 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {/* 新增：編輯按鈕 */}
+                <DropdownMenuItem asChild>
+                  <Link href={`/edit-request/${request.id}`} className="flex items-center cursor-pointer w-full">
+                    <Edit className="mr-2 h-4 w-4"/> Edit
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => closeRequest(request.id)} className="text-green-600">
                   <CheckCircle className="mr-2 h-4 w-4"/> Mark as Done
                 </DropdownMenuItem>
