@@ -2,18 +2,19 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/utils/supabase/client"
+import { useRouter } from "next/navigation" // 引入 router
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Trash2, Edit, Save, X, Gem } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { deleteRequest, closeRequest, revalidateAll } from "@/app/actions"
+import { revalidateAll } from "@/app/actions" // 引入 Server Action
 
 export default function AdminDashboard({ userEmail }: { userEmail: string | undefined }) {
   const supabase = createClient()
+  const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   
@@ -27,13 +28,14 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
   const [editHaveCode, setEditHaveCode] = useState("")
   const [editHaveGroup, setEditHaveGroup] = useState("")
   
-  // Want (目前假設主要修第一組 Want，這對 99% 情況足夠)
+  // Want
   const [editWantCode, setEditWantCode] = useState("")
-  const [editWantGroupsStr, setEditWantGroupsStr] = useState("") // 用字串編輯 "A, B, C"
+  const [editWantGroupsStr, setEditWantGroupsStr] = useState("") // "A, B, C"
   
   // Reward
   const [editReward, setEditReward] = useState("")
 
+  // 請確認這裡的 Email 是你的管理員 Email
   const ADMIN_EMAIL = "25132098S@common.cpce-polyu.edu.hk"
 
   useEffect(() => {
@@ -63,16 +65,20 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
 
   const handleDelete = async (id: string) => {
     if(!confirm("Confirm delete?")) return
+    
     await supabase.from('swap_requests').delete().eq('id', id)
+    
+    // 清除緩存並刷新
     await revalidateAll()
     toast.success("Deleted")
-    fetchData()
+    await fetchData()
+    router.refresh()
   }
 
   const startEdit = (req: any) => {
     setEditingId(req.id)
     
-    // Setup Have
+    // Setup Have (取第一個)
     if (req.have_details && req.have_details.length > 0) {
       setEditHaveCode(req.have_details[0].code)
       setEditHaveGroup(req.have_details[0].group)
@@ -81,10 +87,10 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
       setEditHaveGroup("")
     }
 
-    // Setup Want (取出第一個 Want Item 來編輯)
+    // Setup Want (取第一個)
     if (req.wants && req.wants.length > 0) {
       setEditWantCode(req.wants[0].code)
-      // 將陣列 ["A", "B01"] 轉為字串 "A, B01" 方便編輯
+      // 將陣列轉字串，方便編輯 (e.g., "A, B01")
       setEditWantGroupsStr(req.wants[0].groups.join(", "))
     } else {
       setEditWantCode("")
@@ -105,8 +111,12 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
     }]
 
     // 2. Reconstruct Want JSON
-    // 將字串 "A, B01" 轉回陣列 ["A", "B01"]
-    const newGroupsArray = editWantGroupsStr.split(',').map(s => s.trim().toUpperCase()).filter(s => s !== "")
+    // 將字串 "B01A, Any" 切割回陣列 ["B01A", "ANY"]
+    const newGroupsArray = editWantGroupsStr
+      .split(',')
+      .map(s => s.trim().toUpperCase())
+      .filter(s => s !== "")
+
     const newWants = [{
       code: editWantCode.toUpperCase().trim(),
       groups: newGroupsArray
@@ -122,12 +132,18 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
       })
       .eq('id', id)
 
-    if (error) toast.error("Update failed: " + error.message)
-    else {
+    if (error) {
+      toast.error("Update failed: " + error.message)
+    } else {
+      // 4. 重要：清除 Server 緩存
       await revalidateAll()
+      
       toast.success("Updated successfully")
       setEditingId(null)
-      fetchData()
+      
+      // 5. 刷新本地數據和頁面狀態
+      await fetchData()
+      router.refresh()
     }
   }
 
@@ -190,7 +206,6 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
                   {editingId === req.id ? (
                     <div className="flex gap-2">
                       <Input value={editWantCode} onChange={e => setEditWantCode(e.target.value)} placeholder="Want Code" className="w-32 font-bold border-blue-200"/>
-                      {/* 用字串編輯陣列，例如 "A, B, C" */}
                       <Input value={editWantGroupsStr} onChange={e => setEditWantGroupsStr(e.target.value)} placeholder="Groups (comma separated)" className="flex-1 border-blue-200"/>
                     </div>
                   ) : (
@@ -232,14 +247,16 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
 
       {/* Feedback Management */}
       <section>
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">User Feedbacks</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">User Feedbacks ({feedbacks.length})</h2>
         <div className="grid gap-4">
           {feedbacks.map((f) => (
             <Card key={f.id}>
               <CardContent className="p-4">
-                <p className="font-bold text-sm mb-1">{f.profiles?.email || 'Anonymous'}</p>
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold text-sm">{f.profiles?.email || 'Anonymous'}</span>
+                  <span className="text-xs text-gray-400">{new Date(f.created_at).toLocaleString()}</span>
+                </div>
                 <p className="text-gray-700 whitespace-pre-wrap">{f.message}</p>
-                <p className="text-xs text-gray-400 mt-2">{new Date(f.created_at).toLocaleString()}</p>
               </CardContent>
             </Card>
           ))}
