@@ -32,7 +32,6 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState("")
 
-  // 解析新結構
   const haves = request.have_details || []
   const wants = request.wants || []
 
@@ -65,15 +64,12 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
   }
 
   return (
-    // 修正: overflow-visible 解決 dropdown 被切掉
     <Card className="shadow-sm hover:shadow-md transition-shadow group overflow-visible h-full flex flex-col relative">
       <CardHeader className="pb-3 flex flex-row justify-between items-start space-y-0">
-        {/* 日期 */}
         <span className="text-xs text-gray-400">
           {new Date(request.created_at).toLocaleDateString('en-CA')}
         </span>
 
-        {/* 操作按鈕 (絕對定位到右上角，防止 flex 擠壓) */}
         <div className="absolute top-3 right-3 flex gap-1">
           {!isOwnRequest && (
             <Dialog open={reportOpen} onOpenChange={setReportOpen}>
@@ -116,10 +112,14 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
           <p className="text-xs font-bold text-gray-500 mb-1">HAVE (持有):</p>
           <div className="space-y-2">
             {haves.map((h: any, i: number) => (
-              <div key={i} className="bg-slate-50 border p-2 rounded text-sm">
-                <div className="font-bold text-slate-800">{h.code} <span className="font-normal text-gray-600">Group {h.group}</span></div>
-                {/* 顯示詳細時間 (如果有的話) */}
-                <div className="text-xs text-gray-500 mt-0.5">{h.display}</div>
+              <div key={i} className="bg-slate-50 border p-2 rounded text-sm flex items-center gap-2">
+                <Badge variant="secondary" className="font-bold">{h.code}</Badge>
+                <span className="text-gray-700 font-medium">Group {h.lectureGroup}</span>
+                {h.tutorial && h.tutorial !== "No Tut" && (
+                  <span className="text-gray-500 text-xs bg-white px-1 border rounded">
+                    + {h.tutorial}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -146,7 +146,6 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
           </div>
         </div>
 
-        {/* Reward */}
         {request.reward && (
           <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-sm font-medium border border-amber-100 mt-auto">
             <Gem size={16} />
@@ -154,7 +153,6 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
           </div>
         )}
 
-        {/* Contact Button */}
         {!isOwnRequest && (
           <Dialog>
             <DialogTrigger asChild>

@@ -15,11 +15,16 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Link from "next/link"
 
+// 定義結構
 type Course = { code: string; title: string }
-type Section = { id: string; group: string; type: string; day: string; time: string; lecturer: { name: string } | null }
-
-// 定義我們要存入 DB 的結構
-type HaveItem = { id: string; code: string; group: string; display: string }
+// HaveItem: 存儲用戶持有的詳細資訊
+type HaveItem = { 
+  id: string; // 用隨機 ID 讓 React 渲染列表
+  code: string; 
+  lectureGroup: string; // 下拉選單選的 (e.g. 201)
+  tutorial: string;     // 手動輸入的 (e.g. Tut A)
+}
+// WantItem: 存儲用戶想要的詳細資訊
 type WantItem = { code: string; groups: string[] }
 
 export default function CreateRequestPage() {
@@ -29,23 +34,24 @@ export default function CreateRequestPage() {
 
   const [courses, setCourses] = useState<Course[]>([])
   
-  // --- Have Logic ---
+  // --- Have Section States ---
   const [haveCourseCode, setHaveCourseCode] = useState("")
-  const [haveSections, setHaveSections] = useState<Section[]>([])
-  const [selectedHaveSectionId, setSelectedHaveSectionId] = useState("")
-  const [haveList, setHaveList] = useState<HaveItem[]>([]) // 用戶已添加的 Have 列表
+  const [availableLectureGroups, setAvailableLectureGroups] = useState<string[]>([])
+  const [selectedLectureGroup, setSelectedLectureGroup] = useState("")
+  const [manualTutorial, setManualTutorial] = useState("") // 手動輸入 Tutorial
+  const [haveList, setHaveList] = useState<HaveItem[]>([]) 
 
-  // --- Want Logic ---
+  // --- Want Section States ---
   const [wantCourseCode, setWantCourseCode] = useState("")
-  const [availableWantGroups, setAvailableWantGroups] = useState<string[]>([])
-  const [selectedWantGroups, setSelectedWantGroups] = useState<string[]>([])
-  const [wantList, setWantList] = useState<WantItem[]>([]) // 用戶已添加的 Want 列表
+  const [manualWantInput, setManualWantInput] = useState("") // 手動輸入想要 Group
+  const [selectedWantGroups, setSelectedWantGroups] = useState<string[]>([]) // 暫存目前的輸入
+  const [wantList, setWantList] = useState<WantItem[]>([]) 
 
   const [reward, setReward] = useState("")
   const [openHave, setOpenHave] = useState(false)
   const [openWant, setOpenWant] = useState(false)
 
-  // Load Courses
+  // 1. 初始化：載入課程列表
   useEffect(() => {
     const fetchCourses = async () => {
       const { data } = await supabase.from('courses').select('code, title').order('code')
@@ -54,66 +60,74 @@ export default function CreateRequestPage() {
     fetchCourses()
   }, [])
 
-  // Fetch Have Sections
+  // 2. 當 Have Course 改變時，抓取 Lecture Groups (Dropdown)
   useEffect(() => {
-    if (!haveCourseCode) return
-    const fetchSections = async () => {
+    if (!haveCourseCode) {
+      setAvailableLectureGroups([])
+      return
+    }
+    const fetchGroups = async () => {
+      // 這裡我們只抓取 unique groups (假設這些是 Lecture Group)
       const { data } = await supabase
         .from('course_sections')
-        .select(`id, group, type, day, time, lecturer:lecturers(name)`)
+        .select('group')
         .eq('course_code', haveCourseCode)
-      if (data) setHaveSections(data as any)
-    }
-    fetchSections()
-    setSelectedHaveSectionId("")
-  }, [haveCourseCode])
-
-  // Fetch Want Groups
-  useEffect(() => {
-    if (!wantCourseCode) { setAvailableWantGroups([]); return }
-    const fetchGroups = async () => {
-      const { data } = await supabase.from('course_sections').select('group').eq('course_code', wantCourseCode)
+      
       if (data) {
+        // 去重並排序
         const uniqueGroups = Array.from(new Set(data.map(item => item.group))).sort()
-        setAvailableWantGroups(uniqueGroups)
+        setAvailableLectureGroups(uniqueGroups)
       }
     }
     fetchGroups()
-    setSelectedWantGroups([])
-  }, [wantCourseCode])
+    setSelectedLectureGroup("")
+    setManualTutorial("")
+  }, [haveCourseCode])
 
   // --- Actions ---
 
+  // 添加到 Have 列表
   const addHaveItem = () => {
-    if (!haveCourseCode || !selectedHaveSectionId) return
-    const section = haveSections.find(s => s.id === selectedHaveSectionId)
-    if (!section) return
-
-    // 檢查是否重複
-    if (haveList.some(i => i.id === section.id)) {
-      toast.error("此課堂已在列表中")
+    if (!haveCourseCode || !selectedLectureGroup) {
+      toast.error("請選擇科目和 Lecture Group")
       return
     }
 
     const newItem: HaveItem = {
-      id: section.id,
+      id: Math.random().toString(36).substr(2, 9),
       code: haveCourseCode,
-      group: section.group,
-      display: `${section.type} | ${section.day} ${section.time}`
+      lectureGroup: selectedLectureGroup,
+      tutorial: manualTutorial.trim() || "No Tut" // 如果沒填就顯示 No Tut
     }
     
     setHaveList([...haveList, newItem])
-    // Reset selection
+    // Reset inputs
     setHaveCourseCode("")
-    setSelectedHaveSectionId("")
+    setSelectedLectureGroup("")
+    setManualTutorial("")
   }
 
-  const addWantItem = () => {
-    if (!wantCourseCode || selectedWantGroups.length === 0) return
+  // 添加 Want Group Tag (手動輸入)
+  const addManualWantGroup = () => {
+    const val = manualWantInput.trim().toUpperCase()
+    if (!val) return
+    if (selectedWantGroups.includes(val)) {
+      toast.error("已存在")
+      return
+    }
+    setSelectedWantGroups([...selectedWantGroups, val])
+    setManualWantInput("")
+  }
 
-    // 檢查該科目是否已存在
+  // 添加到 Want 列表 (整張卡片)
+  const addWantItem = () => {
+    if (!wantCourseCode || selectedWantGroups.length === 0) {
+      toast.error("請選擇科目並至少輸入一個想要的 Group")
+      return
+    }
+
     if (wantList.some(i => i.code === wantCourseCode)) {
-      toast.error("此科目已在列表中 (請刪除後重新添加)")
+      toast.error("此科目已在列表中")
       return
     }
 
@@ -123,39 +137,29 @@ export default function CreateRequestPage() {
     }
 
     setWantList([...wantList, newItem])
-    // Reset selection
+    // Reset inputs
     setWantCourseCode("")
     setSelectedWantGroups([])
+    setManualWantInput("")
   }
 
   const removeHave = (id: string) => setHaveList(haveList.filter(i => i.id !== id))
   const removeWant = (code: string) => setWantList(wantList.filter(i => i.code !== code))
-
-  const toggleWantGroup = (group: string) => {
-    if (group === 'ANY') {
-      setSelectedWantGroups(selectedWantGroups.includes('ANY') ? [] : ['ANY'])
-      return
-    }
-    let newSelection = selectedWantGroups.filter(g => g !== 'ANY')
-    if (newSelection.includes(group)) newSelection = newSelection.filter(g => g !== group)
-    else newSelection.push(group)
-    setSelectedWantGroups(newSelection)
-  }
+  const removeWantGroupTag = (tag: string) => setSelectedWantGroups(selectedWantGroups.filter(g => g !== tag))
 
   const handleSubmit = async () => {
     if (haveList.length === 0 || wantList.length === 0) {
-      toast.error("請至少加入一個持有課堂和一個想要課堂")
+      toast.error("請至少填寫一個持有和一個想要")
       return
     }
-    
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
     const { error } = await supabase.from('swap_requests').insert({
       user_id: user.id,
-      have_details: haveList, // 存入 JSONB
-      wants: wantList,        // 存入 JSONB
+      have_details: haveList,
+      wants: wantList,
       reward: reward || null,
       status: 'OPEN'
     })
@@ -182,11 +186,11 @@ export default function CreateRequestPage() {
         </CardHeader>
         <CardContent className="space-y-8">
           
-          {/* === Have Section === */}
+          {/* === 1. Have Section === */}
           <div className="space-y-4 border-b pb-6">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-sm">1</span>
-              我持有的課堂 (可多選)
+              我持有的課堂 (Have)
             </h3>
             
             {/* 已添加列表 */}
@@ -196,8 +200,10 @@ export default function CreateRequestPage() {
                   <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded border">
                     <div>
                       <span className="font-bold mr-2">{item.code}</span>
-                      <span className="bg-slate-200 text-xs px-2 py-1 rounded">Group {item.group}</span>
-                      <div className="text-xs text-gray-500 mt-1">{item.display}</div>
+                      <span className="bg-slate-200 text-xs px-2 py-1 rounded">Lect {item.lectureGroup}</span>
+                      {item.tutorial && item.tutorial !== "No Tut" && (
+                        <span className="ml-2 text-sm text-gray-600">+ {item.tutorial}</span>
+                      )}
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => removeHave(item.id)}><Trash2 size={16} className="text-red-500"/></Button>
                   </div>
@@ -205,16 +211,19 @@ export default function CreateRequestPage() {
               </div>
             )}
 
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 space-y-2">
+            {/* 輸入區塊 */}
+            <div className="flex flex-col gap-3 p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+              {/* 科目搜尋 */}
+              <div className="flex flex-col space-y-1.5">
+                <Label className="text-xs text-gray-500">科目 (Subject)</Label>
                 <Popover open={openHave} onOpenChange={setOpenHave}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="justify-between w-full">
-                      {haveCourseCode || "選擇科目..."}
+                    <Button variant="outline" role="combobox" className="justify-between w-full bg-white">
+                      {haveCourseCode || "搜尋科目..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[200px]">
+                  <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
                     <Command>
                       <CommandInput placeholder="Search..." />
                       <CommandList>
@@ -231,31 +240,43 @@ export default function CreateRequestPage() {
                   </PopoverContent>
                 </Popover>
               </div>
-              
-              {haveCourseCode && (
-                <div className="flex-1 space-y-2">
-                  <Select onValueChange={setSelectedHaveSectionId} value={selectedHaveSectionId}>
-                    <SelectTrigger><SelectValue placeholder="選擇Group" /></SelectTrigger>
+
+              {/* Lecture Dropdown + Tutorial Input */}
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-gray-500">Lecture Group</Label>
+                  <Select onValueChange={setSelectedLectureGroup} value={selectedLectureGroup} disabled={!haveCourseCode}>
+                    <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
-                      {haveSections.map((sec) => (
-                        <SelectItem key={sec.id} value={sec.id}>
-                          [{sec.group}] {sec.type}
-                        </SelectItem>
+                      {availableLectureGroups.map((g) => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              
-              <Button onClick={addHaveItem} disabled={!selectedHaveSectionId} size="icon"><Plus /></Button>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-gray-500">Tutorial (手動輸入)</Label>
+                  <Input 
+                    placeholder="e.g. Tut A, Lab B3" 
+                    value={manualTutorial} 
+                    onChange={(e) => setManualTutorial(e.target.value)} 
+                    disabled={!haveCourseCode}
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+
+              <Button onClick={addHaveItem} disabled={!selectedLectureGroup} className="w-full mt-2" variant="secondary">
+                <Plus className="mr-2 h-4 w-4"/> 加入列表
+              </Button>
             </div>
           </div>
 
-          {/* === Want Section === */}
+          {/* === 2. Want Section === */}
           <div className="space-y-4 border-b pb-6">
             <h3 className="font-semibold text-lg flex items-center gap-2 text-blue-600">
               <span className="bg-blue-100 px-2 py-1 rounded text-sm">2</span>
-              我想要的課堂 (可多選)
+              我想要的課堂 (Want)
             </h3>
 
             {/* 已添加列表 */}
@@ -263,8 +284,8 @@ export default function CreateRequestPage() {
               <div className="flex flex-col gap-2 mb-4">
                 {wantList.map((item) => (
                   <div key={item.code} className="flex justify-between items-center bg-blue-50 p-3 rounded border border-blue-100">
-                    <div>
-                      <span className="font-bold mr-2 text-blue-800">{item.code}</span>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-blue-800">{item.code}</span>
                       <div className="flex gap-1 mt-1 flex-wrap">
                         {item.groups.map(g => (
                           <span key={g} className="bg-white text-blue-600 border border-blue-200 text-xs px-2 py-0.5 rounded-full">{g}</span>
@@ -277,16 +298,18 @@ export default function CreateRequestPage() {
               </div>
             )}
 
-            <div className="space-y-3">
-              <div className="flex gap-2">
+            {/* 輸入區塊 */}
+            <div className="flex flex-col gap-3 p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+              <div className="flex flex-col space-y-1.5">
+                <Label className="text-xs text-gray-500">科目 (Subject)</Label>
                 <Popover open={openWant} onOpenChange={setOpenWant}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="justify-between w-full">
-                      {wantCourseCode || "添加想要科目..."}
+                    <Button variant="outline" role="combobox" className="justify-between w-full bg-white">
+                      {wantCourseCode || "搜尋科目..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[200px]">
+                  <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
                     <Command>
                       <CommandInput placeholder="Search..." />
                       <CommandList>
@@ -302,23 +325,55 @@ export default function CreateRequestPage() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                <Button onClick={addWantItem} disabled={!wantCourseCode || selectedWantGroups.length === 0} size="icon"><Plus /></Button>
               </div>
 
-              {availableWantGroups.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 bg-slate-50 rounded border">
-                  <Button type="button" variant={selectedWantGroups.includes('ANY') ? "default" : "outline"} size="sm" onClick={() => toggleWantGroup('ANY')} className="h-7 text-xs rounded-full">ANY</Button>
-                  {availableWantGroups.map(g => (
-                    <Button key={g} type="button" variant={selectedWantGroups.includes(g) ? "default" : "outline"} size="sm" onClick={() => toggleWantGroup(g)} className="h-7 text-xs rounded-full">
-                      {g}
-                    </Button>
-                  ))}
+              {/* 手動輸入 Want Groups + 顯示已輸入的 Tags */}
+              <div className="space-y-2">
+                <Label className="text-xs text-gray-500">想要班別 (輸入後按 Enter 或點擊 +)</Label>
+                
+                {/* 顯示目前暫存的 Tags */}
+                {selectedWantGroups.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selectedWantGroups.map(tag => (
+                      <span key={tag} className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
+                        {tag}
+                        <button onClick={() => removeWantGroupTag(tag)} className="hover:text-red-500"><X size={12}/></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* 修正這裡：使用 flex-wrap 防止按鈕突出 */}
+                <div className="flex flex-wrap gap-2 items-center"> 
+                  <Input 
+                    placeholder="e.g. ANY, 201, Tut A" 
+                    value={manualWantInput}
+                    onChange={(e) => setManualWantInput(e.target.value)}
+                    onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addManualWantGroup(); } }}
+                    disabled={!wantCourseCode}
+                    className="flex-1 min-w-[150px] bg-white" 
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={addManualWantGroup} 
+                    disabled={!manualWantInput} 
+                    size="icon" 
+                    variant="outline"
+                    className="shrink-0"
+                  >
+                    <Plus size={18} />
+                  </Button>
                 </div>
-              )}
+                <p className="text-[10px] text-gray-400">* 建議輸入 "ANY" 表示不限班別</p>
+              </div>
+
+              <Button onClick={addWantItem} disabled={!wantCourseCode || selectedWantGroups.length === 0} className="w-full mt-2" variant="secondary">
+                <Plus className="mr-2 h-4 w-4"/> 加入 Want 列表
+              </Button>
             </div>
           </div>
 
-          {/* === Reward Section === */}
+          {/* === 3. Reward Section === */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg flex items-center gap-2 text-amber-600">
               <span className="bg-amber-100 px-2 py-1 rounded text-sm">3</span>
