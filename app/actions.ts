@@ -33,3 +33,7 @@ export async function closeRequest(requestId: string) {
   revalidatePath('/matches')
   return { success: true }
 }
+
+export async function revalidateAll() {
+  revalidatePath('/', 'layout') // 清除所有頁面的緩存
+}

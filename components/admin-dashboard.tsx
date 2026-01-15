@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { Trash2, Edit, Save, X, Gem } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { deleteRequest, closeRequest, revalidateAll } from "@/app/actions"
 
 export default function AdminDashboard({ userEmail }: { userEmail: string | undefined }) {
   const supabase = createClient()
@@ -63,6 +64,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
   const handleDelete = async (id: string) => {
     if(!confirm("Confirm delete?")) return
     await supabase.from('swap_requests').delete().eq('id', id)
+    await revalidateAll()
     toast.success("Deleted")
     fetchData()
   }
@@ -122,6 +124,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string | unde
 
     if (error) toast.error("Update failed: " + error.message)
     else {
+      await revalidateAll()
       toast.success("Updated successfully")
       setEditingId(null)
       fetchData()
