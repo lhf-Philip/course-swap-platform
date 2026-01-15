@@ -7,19 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { Check, ChevronsUpDown, X } from "lucide-react" // 確保這裡有導入 X
+import { Check, ChevronsUpDown, X, Gem } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Link from "next/link"
 
-// 修正 TypeScript 定義：加入 type 欄位
 type Course = { code: string; title: string }
 type Section = { 
   id: string; 
   group: string; 
-  type: string; // <--- 之前漏了這行，導致報錯
+  type: string;
   day: string; 
   time: string; 
   lecturer: { name: string } | null 
@@ -30,24 +30,26 @@ export default function CreateRequestPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  // Data States
+  // Data
   const [courses, setCourses] = useState<Course[]>([])
   
-  // Have States
+  // Have
   const [haveCourseCode, setHaveCourseCode] = useState("")
   const [haveSections, setHaveSections] = useState<Section[]>([])
   const [selectedHaveSectionId, setSelectedHaveSectionId] = useState("")
 
-  // Want States
+  // Want (Multi-Select)
   const [wantCourseCode, setWantCourseCode] = useState("")
   const [availableWantGroups, setAvailableWantGroups] = useState<string[]>([])
-  const [wantGroup, setWantGroup] = useState("")
+  const [selectedWantGroups, setSelectedWantGroups] = useState<string[]>([])
+  
+  // Reward
+  const [reward, setReward] = useState("")
 
-  // UI States
+  // UI
   const [openHave, setOpenHave] = useState(false)
   const [openWant, setOpenWant] = useState(false)
 
-  // 1. Load Courses
   useEffect(() => {
     const fetchCourses = async () => {
       const { data } = await supabase.from('courses').select('code, title').order('code')
@@ -56,11 +58,9 @@ export default function CreateRequestPage() {
     fetchCourses()
   }, [])
 
-  // 2. Fetch "Have" Sections
   useEffect(() => {
     if (!haveCourseCode) return
     const fetchSections = async () => {
-      // 這裡選取 course_sections 表格的所有欄位，包括 type
       const { data } = await supabase
         .from('course_sections')
         .select(`id, group, type, day, time, lecturer:lecturers(name)`)
@@ -72,7 +72,6 @@ export default function CreateRequestPage() {
     setSelectedHaveSectionId("")
   }, [haveCourseCode])
 
-  // 3. Fetch "Want" Groups
   useEffect(() => {
     if (!wantCourseCode) {
       setAvailableWantGroups([])
@@ -85,18 +84,40 @@ export default function CreateRequestPage() {
         .eq('course_code', wantCourseCode)
       
       if (data) {
-        // 去除重複並排序
         const uniqueGroups = Array.from(new Set(data.map(item => item.group))).sort()
         setAvailableWantGroups(uniqueGroups)
       }
     }
     fetchGroups()
-    setWantGroup("")
+    setSelectedWantGroups([]) // 重置選擇
   }, [wantCourseCode])
 
+  // 切換選擇的 Group
+  const toggleWantGroup = (group: string) => {
+    if (group === 'ANY') {
+      // 如果選 ANY，清空其他只留 ANY，或取消 ANY
+      if (selectedWantGroups.includes('ANY')) {
+        setSelectedWantGroups([])
+      } else {
+        setSelectedWantGroups(['ANY'])
+      }
+      return
+    }
+
+    // 如果選了其他，先移除 ANY
+    let newSelection = selectedWantGroups.filter(g => g !== 'ANY')
+    
+    if (newSelection.includes(group)) {
+      newSelection = newSelection.filter(g => g !== group)
+    } else {
+      newSelection.push(group)
+    }
+    setSelectedWantGroups(newSelection)
+  }
+
   const handleSubmit = async () => {
-    if (!selectedHaveSectionId || !wantCourseCode || !wantGroup) {
-      toast.error("請填寫所有欄位")
+    if (!selectedHaveSectionId || !wantCourseCode || selectedWantGroups.length === 0) {
+      toast.error("請完整填寫 (持有課堂、想要科目、想要班別)")
       return
     }
     setLoading(true)
@@ -107,7 +128,8 @@ export default function CreateRequestPage() {
       user_id: user.id,
       have_section_id: selectedHaveSectionId,
       want_course_code: wantCourseCode,
-      want_group: wantGroup,
+      want_groups: selectedWantGroups, // 插入陣列
+      reward: reward || null,          // 插入報酬
       status: 'OPEN'
     })
 
@@ -123,30 +145,22 @@ export default function CreateRequestPage() {
 
   return (
     <div className="container mx-auto py-10 px-4 max-w-2xl">
-      {/* 
-          關鍵修改：
-          1. relative: 讓內部的 absolute 定位以這張卡片為基準
-          2. overflow-visible: 讓 Combobox 下拉選單能超出卡片顯示
-      */}
       <Card className="relative overflow-visible">
-        
-        {/* X 按鈕：使用 absolute 定位 */}
-        <Link 
-          href="/" 
-          className="absolute right-4 top-4 p-2 text-gray-500 hover:text-black hover:bg-slate-100 rounded-full transition-colors z-50"
-          aria-label="Close"
-        >
+        <Link href="/" className="absolute right-4 top-4 p-2 text-gray-500 hover:text-black hover:bg-slate-100 rounded-full transition-colors z-50">
           <X size={24} />
         </Link>
 
         <CardHeader>
           <CardTitle>建立交換請求</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8">
           
           {/* Have Section */}
           <div className="space-y-4 border-b pb-6">
-            <h3 className="font-semibold text-lg">我持有的課堂 (Have)</h3>
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-sm">1</span>
+              我持有的課堂 (Have)
+            </h3>
             <div className="flex flex-col space-y-2">
               <Label>科目編號</Label>
               <Popover open={openHave} onOpenChange={setOpenHave}>
@@ -158,7 +172,7 @@ export default function CreateRequestPage() {
                 </PopoverTrigger>
                 <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
                   <Command>
-                    <CommandInput placeholder="Search course..." />
+                    <CommandInput placeholder="Search..." />
                     <CommandList>
                       <CommandEmpty>No course found.</CommandEmpty>
                       <CommandGroup>
@@ -183,8 +197,8 @@ export default function CreateRequestPage() {
             </div>
 
             {haveCourseCode && (
-              <div className="flex flex-col space-y-2">
-                <Label>選擇具體班別 (Group / Time)</Label>
+              <div className="flex flex-col space-y-2 animate-in fade-in slide-in-from-top-2">
+                <Label>選擇具體班別</Label>
                 <Select onValueChange={setSelectedHaveSectionId}>
                   <SelectTrigger>
                     <SelectValue placeholder="選擇你的時段" />
@@ -192,7 +206,6 @@ export default function CreateRequestPage() {
                   <SelectContent>
                     {haveSections.map((sec) => (
                       <SelectItem key={sec.id} value={sec.id}>
-                        {/* 這裡現在應該可以正確讀取 sec.type 了 */}
                         <span className="font-bold">[{sec.group}]</span> {sec.type} | {sec.day} {sec.time} ({sec.lecturer?.name || 'TBA'})
                       </SelectItem>
                     ))}
@@ -203,8 +216,11 @@ export default function CreateRequestPage() {
           </div>
 
           {/* Want Section */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg text-blue-600">我想要的課堂 (Want)</h3>
+          <div className="space-y-4 border-b pb-6">
+            <h3 className="font-semibold text-lg flex items-center gap-2 text-blue-600">
+              <span className="bg-blue-100 px-2 py-1 rounded text-sm">2</span>
+              我想要的課堂 (Want)
+            </h3>
             <div className="flex flex-col space-y-2">
               <Label>想要科目</Label>
               <Popover open={openWant} onOpenChange={setOpenWant}>
@@ -216,7 +232,7 @@ export default function CreateRequestPage() {
                 </PopoverTrigger>
                 <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
                   <Command>
-                    <CommandInput placeholder="Search course..." />
+                    <CommandInput placeholder="Search..." />
                     <CommandList>
                       <CommandEmpty>No course found.</CommandEmpty>
                       <CommandGroup>
@@ -240,23 +256,62 @@ export default function CreateRequestPage() {
               </Popover>
             </div>
 
+            {availableWantGroups.length > 0 && (
+              <div className="flex flex-col space-y-3 animate-in fade-in slide-in-from-top-2">
+                <Label>想要班別 (可多選)</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={selectedWantGroups.includes('ANY') ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleWantGroup('ANY')}
+                    className="rounded-full"
+                  >
+                    不限 (ANY)
+                  </Button>
+                  {availableWantGroups.map(group => (
+                    <Button
+                      key={group}
+                      type="button"
+                      variant={selectedWantGroups.includes(group) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleWantGroup(group)}
+                      className={cn(
+                        "rounded-full transition-all",
+                        selectedWantGroups.includes(group) ? "bg-blue-600 hover:bg-blue-700 text-white" : ""
+                      )}
+                    >
+                      {group}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400">已選擇: {selectedWantGroups.length > 0 ? selectedWantGroups.join(", ") : "未選擇"}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Reward Section */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg flex items-center gap-2 text-amber-600">
+              <span className="bg-amber-100 px-2 py-1 rounded text-sm">3</span>
+              報酬 (Optional)
+            </h3>
             <div className="flex flex-col space-y-2">
-              <Label>想要班別 (Group)</Label>
-              <Select onValueChange={setWantGroup} disabled={!wantCourseCode}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={wantCourseCode ? "選擇想要的 Group" : "請先選擇科目"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ANY">不限 (ANY)</SelectItem>
-                    {availableWantGroups.map(g => (
-                      <SelectItem key={g} value={g}>{g}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <Label>提供報酬</Label>
+              <div className="relative">
+                <Gem className="absolute left-3 top-2.5 h-5 w-5 text-amber-500" />
+                <Input 
+                  placeholder="e.g. Free Lunch, $50, Coffee..." 
+                  className="pl-10"
+                  value={reward}
+                  onChange={(e) => setReward(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-gray-400">適當的報酬可以增加交換成功的機率。</p>
             </div>
           </div>
 
-          <Button onClick={handleSubmit} className="w-full" disabled={loading}>
+          <Button onClick={handleSubmit} className="w-full text-lg h-12" disabled={loading}>
             {loading ? "提交中..." : "發布交換請求"}
           </Button>
 
