@@ -2,6 +2,7 @@ import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
 import { Button } from "@/components/ui/button"
 import { redirect } from "next/navigation"
+import SignOutButton from "@/components/sign-out-button"
 
 export default async function Navbar() {
   const supabase = await createClient()
@@ -29,9 +30,7 @@ export default async function Navbar() {
                 </Button>
               </Link>
               <span className="text-sm text-gray-500">{user.email}</span>
-              <form action={signOut}>
-                <Button variant="outline" size="sm">登出</Button>
-              </form>
+              <SignOutButton />
             </>
           ) : (
             <Link href="/login">

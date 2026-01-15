@@ -9,10 +9,12 @@ export async function loginWithMicrosoft() {
   const origin = (await headers()).get('origin')
 
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'azure', // Supabase 對應 Microsoft 的代號是 azure
+    provider: 'azure',
     options: {
       redirectTo: `${origin}/auth/callback`,
-      scopes: 'email profile openid', // 請求基本權限
+      scopes: 'email profile openid',
+      // 關鍵修正：加入這行，強制每次都要選帳號/輸入密碼
+      queryParams: { prompt: 'login' }, 
     },
   })
 
@@ -22,6 +24,6 @@ export async function loginWithMicrosoft() {
   }
 
   if (data.url) {
-    redirect(data.url) // 自動跳轉去 Microsoft 登入頁面
+    redirect(data.url)
   }
 }
