@@ -7,7 +7,6 @@ import Search from "@/components/search"
 
 export const dynamic = 'force-dynamic'
 
-// 定義 Props 類型
 type SearchParams = Promise<{ q?: string }>
 
 export default async function Home({
@@ -18,27 +17,31 @@ export default async function Home({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 關鍵修正：必須 await searchParams
   const params = await searchParams
   const query = params?.q?.toLowerCase() || ''
 
-  // 1. 抓取所有 OPEN 請求
-  const { data: requests, error } = await supabase
+  // 1. 抓取所有請求 (包含新的 JSONB 欄位)
+  const { data: requests } = await supabase
     .from('swap_requests')
     .select(`
       *,
-      profiles:user_id (contact_method, contact_detail, email), 
-      // 注意：不再需要查詢 course_sections，因為資料已經存入 JSONB
+      profiles:user_id (contact_method, contact_detail, email)
     `)
     .eq('status', 'OPEN')
     .order('created_at', { ascending: false })
 
-  // 2. 搜尋過濾邏輯
+  // 2. 搜尋過濾邏輯 (針對 JSONB 結構進行搜尋)
   const filteredRequests = query && requests
     ? requests.filter((req: any) => {
-        const haveCode = req.course_sections.course_code.toLowerCase()
-        const wantCode = req.want_course_code.toLowerCase()
-        return haveCode.includes(query) || wantCode.includes(query)
+        // 搜尋 Have 裡面的 Code
+        const matchHave = req.have_details?.some((h: any) => 
+          h.code.toLowerCase().includes(query)
+        )
+        // 搜尋 Want 裡面的 Code
+        const matchWant = req.wants?.some((w: any) => 
+          w.code.toLowerCase().includes(query)
+        )
+        return matchHave || matchWant
       })
     : requests
 
@@ -58,17 +61,24 @@ export default async function Home({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* 
+           === 關鍵修改：瀑布流布局 (Masonry Layout) === 
+           使用 columns-1 (手機) -> columns-2 (平板) -> columns-3 (桌面)
+           space-y-6: 控制垂直間距
+        */}
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
           {filteredRequests && filteredRequests.length > 0 ? (
             filteredRequests.map((req: any) => (
-              <RequestCard 
-                key={req.id} 
-                request={req} 
-                currentUserId={user?.id} 
-              />
+              // break-inside-avoid 是關鍵：防止卡片被切斷在兩列之間
+              <div key={req.id} className="break-inside-avoid">
+                <RequestCard 
+                  request={req} 
+                  currentUserId={user?.id} 
+                />
+              </div>
             ))
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-500 space-y-4">
+            <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-500 space-y-4 text-center">
               <p className="text-lg">
                 {query ? `找不到包含 "${query}" 的請求` : "目前沒有任何交換請求"}
               </p>

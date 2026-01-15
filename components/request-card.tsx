@@ -26,14 +26,17 @@ type RequestCardProps = {
 export default function RequestCard({ request, currentUserId }: RequestCardProps) {
   const supabase = createClient()
   const isOwnRequest = currentUserId === request.user_id
+
   const contactMethod = request.profiles?.contact_method || 'Email'
   const contactDetail = request.profiles?.contact_detail || request.profiles?.email || 'No contact info'
   
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState("")
 
+  // === 關鍵修改：讀取新的 JSON 結構 ===
   const haves = request.have_details || []
   const wants = request.wants || []
+  // ===================================
 
   const messageTemplate = `Hi, I saw your swap request on the platform. I'm interested in trading!`
   
@@ -64,7 +67,9 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
   }
 
   return (
-    <Card className="shadow-sm hover:shadow-md transition-shadow group overflow-visible h-full flex flex-col relative">
+    // overflow-visible: 讓下拉選單能顯示
+    // h-auto: 讓高度自動適應內容，不要強制拉長
+    <Card className="shadow-sm hover:shadow-md transition-shadow group overflow-visible h-auto flex flex-col relative bg-white">
       <CardHeader className="pb-3 flex flex-row justify-between items-start space-y-0">
         <span className="text-xs text-gray-400">
           {new Date(request.created_at).toLocaleDateString('en-CA')}
@@ -109,19 +114,17 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
       <CardContent className="flex-1 flex flex-col gap-4">
         {/* Have List */}
         <div>
-          <p className="text-xs font-bold text-gray-500 mb-1">HAVE (持有):</p>
+          <p className="text-xs font-bold text-gray-500 mb-1">HAVE:</p>
           <div className="space-y-2">
-            {haves.map((h: any, i: number) => (
-              <div key={i} className="bg-slate-50 border p-2 rounded text-sm flex items-center gap-2">
+            {haves.length > 0 ? haves.map((h: any, i: number) => (
+              <div key={i} className="bg-slate-50 border p-2 rounded text-sm flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="font-bold">{h.code}</Badge>
-                <span className="text-gray-700 font-medium">Group {h.lectureGroup}</span>
-                {h.tutorial && h.tutorial !== "No Tut" && (
-                  <span className="text-gray-500 text-xs bg-white px-1 border rounded">
-                    + {h.tutorial}
-                  </span>
-                )}
+                {/* 顯示手動輸入的 Group */}
+                <span className="text-gray-800 font-medium">{h.group}</span>
               </div>
-            ))}
+            )) : (
+              <p className="text-xs text-red-400">No details (Old data)</p>
+            )}
           </div>
         </div>
 
@@ -129,7 +132,7 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
 
         {/* Want List */}
         <div>
-          <p className="text-xs font-bold text-blue-500 mb-1">WANT (想要):</p>
+          <p className="text-xs font-bold text-blue-500 mb-1">WANT:</p>
           <div className="space-y-2">
             {wants.map((w: any, i: number) => (
               <div key={i} className="border border-blue-100 bg-blue-50 p-2 rounded text-sm">
@@ -147,7 +150,7 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
         </div>
 
         {request.reward && (
-          <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-sm font-medium border border-amber-100 mt-auto">
+          <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-sm font-medium border border-amber-100 mt-2">
             <Gem size={16} />
             <span>Reward: {request.reward}</span>
           </div>
@@ -156,7 +159,7 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
         {!isOwnRequest && (
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="w-full mt-2 gap-2">
+              <Button className="w-full mt-3 gap-2">
                 {contactMethod === 'WhatsApp' ? <MessageCircle size={16}/> : <Mail size={16}/>}
                 Contact {contactMethod}
               </Button>
