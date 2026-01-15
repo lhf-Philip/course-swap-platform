@@ -15,28 +15,27 @@ type MarketPlaceProps = {
 export default function MarketPlace({ initialRequests, currentUserId }: MarketPlaceProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  // === 核心邏輯：即時過濾 ===
-  // 使用 useMemo 優化效能，只有當 query 或 requests 變動時才重新計算
+  // === 核心邏輯：即時過濾 (已修復 Crash 問題) ===
   const filteredRequests = useMemo(() => {
     if (!searchQuery.trim()) return initialRequests
 
     const lowerQuery = searchQuery.toLowerCase()
 
     return initialRequests.filter((req) => {
-      // 1. 搜尋 Have Code & Group
+      // 1. 搜尋 Have Code & Group (加入 || "" 防止 undefined)
       const haveMatch = req.have_details?.some((h: any) => 
-        h.code.toLowerCase().includes(lowerQuery) || 
-        h.group.toLowerCase().includes(lowerQuery)
+        (h.code || "").toLowerCase().includes(lowerQuery) || 
+        (h.group || "").toLowerCase().includes(lowerQuery)
       )
 
-      // 2. 搜尋 Want Code & Groups
+      // 2. 搜尋 Want Code & Groups (加入 || "" 防止 undefined)
       const wantMatch = req.wants?.some((w: any) => 
-        w.code.toLowerCase().includes(lowerQuery) ||
-        w.groups?.some((g: string) => g.toLowerCase().includes(lowerQuery))
+        (w.code || "").toLowerCase().includes(lowerQuery) ||
+        w.groups?.some((g: string) => (g || "").toLowerCase().includes(lowerQuery))
       )
 
-      // 3. 搜尋 Reward
-      const rewardMatch = req.reward?.toLowerCase().includes(lowerQuery)
+      // 3. 搜尋 Reward (加入 || "" 防止 null)
+      const rewardMatch = (req.reward || "").toLowerCase().includes(lowerQuery)
 
       return haveMatch || wantMatch || rewardMatch
     })
@@ -45,7 +44,7 @@ export default function MarketPlace({ initialRequests, currentUserId }: MarketPl
   return (
     <div className="space-y-6">
       {/* 搜尋與操作欄 */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 sticky top-20 z-30 bg-gray-50/95 backdrop-blur py-2">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 sticky top-16 z-30 bg-gray-50/95 backdrop-blur py-2">
         <h1 className="text-3xl font-bold text-gray-800">Swap 市場</h1>
         
         <div className="flex w-full md:w-auto gap-2">
@@ -55,7 +54,7 @@ export default function MarketPlace({ initialRequests, currentUserId }: MarketPl
               placeholder="搜尋 Code, Class, Reward..."
               className="pl-9 bg-white"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)} // 即時更新 state
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           
