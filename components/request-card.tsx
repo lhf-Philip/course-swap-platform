@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/utils/supabase/client"
 import { toast } from "sonner"
-import { Copy, Flag, MessageCircle, Mail, MoreHorizontal, Trash2, CheckCircle, Gem } from "lucide-react"
+import { Copy, Flag, MessageCircle, Mail, MoreHorizontal, Trash2, CheckCircle, Gem, ArrowRightLeft } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,19 +26,17 @@ type RequestCardProps = {
 export default function RequestCard({ request, currentUserId }: RequestCardProps) {
   const supabase = createClient()
   const isOwnRequest = currentUserId === request.user_id
-
-  const contactMethod = request.profiles.contact_method
-  const contactDetail = request.profiles.contact_detail
+  const contactMethod = request.profiles?.contact_method || 'Email'
+  const contactDetail = request.profiles?.contact_detail || 'No contact info'
   
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState("")
-  const [isReporting, setIsReporting] = useState(false)
 
-  // 處理 Want Groups (兼容舊數據)
-  const wantGroups = request.want_groups || (request.want_group ? [request.want_group] : [])
-  const wantString = wantGroups.join(" / ")
+  // 解析新結構
+  const haves = request.have_details || []
+  const wants = request.wants || []
 
-  const messageTemplate = `Hi, I saw on Swap Platform that you have ${request.course_sections.course_code} (Group ${request.course_sections.group}). I have ${wantString} and interested in swapping!`
+  const messageTemplate = `Hi, I saw your swap request on the platform. I'm interested in trading!`
   
   const getWhatsAppLink = () => {
     const cleanNumber = contactDetail.replace(/\D/g, '')
@@ -48,203 +46,133 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(messageTemplate)
-    toast.success("訊息已複製到剪貼簿")
+    toast.success("Copied!")
   }
 
   const handleReport = async () => {
-    if (!reportReason) return toast.error("請輸入舉報原因")
-    setIsReporting(true)
-
-    const { error: dbError } = await supabase.from('reports').insert({
+    if (!reportReason) return toast.error("Please enter a reason")
+    const { error } = await supabase.from('reports').insert({
       reporter_id: currentUserId,
       target_request_id: request.id,
       reason: reportReason,
       status: 'PENDING'
     })
-
-    if (dbError) {
-      toast.error("舉報提交失敗")
-    } else {
-      toast.success("舉報已提交，管理員將會審核")
+    if (error) toast.error("Failed")
+    else {
+      toast.success("Reported")
       setReportOpen(false)
-      setReportReason("")
     }
-    setIsReporting(false)
   }
 
   return (
-    <Card className="shadow-sm hover:shadow-md transition-shadow group overflow-visible h-full flex flex-col">
-      <CardHeader className="pb-3 relative">
-        <div className="flex justify-between items-start w-full">
-          {/* 左側：科目編號 */}
-          <div className="flex flex-col gap-1">
-            <Badge variant="secondary" className="w-fit text-sm font-bold">
-              {request.course_sections.course_code}
-            </Badge>
-            <span className="text-xs text-gray-400 pl-1">
-              {new Date(request.created_at).toLocaleDateString('en-CA')}
-            </span>
-          </div>
+    // 修正: overflow-visible 解決 dropdown 被切掉
+    <Card className="shadow-sm hover:shadow-md transition-shadow group overflow-visible h-full flex flex-col relative">
+      <CardHeader className="pb-3 flex flex-row justify-between items-start space-y-0">
+        {/* 日期 */}
+        <span className="text-xs text-gray-400">
+          {new Date(request.created_at).toLocaleDateString('en-CA')}
+        </span>
 
-          {/* 右側：操作按鈕 (三點 & 舉報) */}
-          <div className="flex items-center gap-1 -mr-2"> {/* 負 margin 微調位置 */}
-            {!isOwnRequest && (
-              <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-300 hover:text-red-500">
-                    <Flag size={14} />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>檢舉此請求</DialogTitle>
-                    <DialogDescription>如發現虛假資訊或騷擾行為，請告知我們。</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>原因</Label>
-                      <Textarea 
-                        placeholder="請簡述原因..." 
-                        value={reportReason}
-                        onChange={(e) => setReportReason(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setReportOpen(false)}>取消</Button>
-                    <Button variant="destructive" onClick={handleReport} disabled={isReporting}>
-                      {isReporting ? "提交中..." : "確認檢舉"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+        {/* 操作按鈕 (絕對定位到右上角，防止 flex 擠壓) */}
+        <div className="absolute top-3 right-3 flex gap-1">
+          {!isOwnRequest && (
+            <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-300 hover:text-red-500">
+                  <Flag size={14} />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Report</DialogTitle></DialogHeader>
+                <Textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="Reason..." />
+                <Button onClick={handleReport} variant="destructive">Submit</Button>
+              </DialogContent>
+            </Dialog>
+          )}
 
-            {isOwnRequest && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem 
-                    className="text-green-600 cursor-pointer"
-                    onClick={async () => {
-                      const res = await closeRequest(request.id)
-                      if (res.error) toast.error(res.error)
-                      else toast.success("已標記為完成！")
-                    }}
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    標記為已交換
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="text-red-600 cursor-pointer"
-                    onClick={async () => {
-                      if(confirm("確定要刪除嗎？")) {
-                         const res = await deleteRequest(request.id)
-                         if (res.error) toast.error(res.error)
-                         else toast.success("請求已刪除")
-                      }
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    刪除請求
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
-
-        <CardTitle className="text-xl mt-3 flex items-center gap-2">
-          <span className="font-medium text-sm text-gray-500">持有:</span> 
-          Group {request.course_sections.group}
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="flex-1 flex flex-col justify-between">
-        <div className="space-y-3 mb-4">
-          <div className="text-sm text-gray-600 bg-slate-50 p-2 rounded border">
-            <p>📅 {request.course_sections.day} {request.course_sections.time}</p>
-            <p>📍 {request.course_sections.venue}</p>
-          </div>
-          
-          <div className="space-y-1">
-            <p className="font-semibold text-sm text-gray-500">想要 (Want):</p>
-            <div className="flex flex-wrap gap-1">
-              <span className="font-bold text-black mr-1">{request.want_course_code}</span>
-              {wantGroups.includes('ANY') ? (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">ANY Group</Badge>
-              ) : (
-                wantGroups.map((g: string) => (
-                  <Badge key={g} variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                    {g}
-                  </Badge>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* 顯示報酬 */}
-          {request.reward && (
-            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-sm font-medium">
-              <Gem size={16} />
-              <span>報酬: {request.reward}</span>
-            </div>
+          {isOwnRequest && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400">
+                  <MoreHorizontal size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => closeRequest(request.id)} className="text-green-600">
+                  <CheckCircle className="mr-2 h-4 w-4"/> Mark as Done
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { if(confirm('Delete?')) deleteRequest(request.id) }} className="text-red-600">
+                  <Trash2 className="mr-2 h-4 w-4"/> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
-        
-        {isOwnRequest ? (
-          <Button variant="secondary" className="w-full cursor-not-allowed opacity-80">
-            這是你的請求
-          </Button>
-        ) : (
+      </CardHeader>
+      
+      <CardContent className="flex-1 flex flex-col gap-4">
+        {/* Have List */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-1">HAVE (持有):</p>
+          <div className="space-y-2">
+            {haves.map((h: any, i: number) => (
+              <div key={i} className="bg-slate-50 border p-2 rounded text-sm">
+                <div className="font-bold text-slate-800">{h.code} <span className="font-normal text-gray-600">Group {h.group}</span></div>
+                {/* 顯示詳細時間 (如果有的話) */}
+                <div className="text-xs text-gray-500 mt-0.5">{h.display}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-center text-gray-300"><ArrowRightLeft size={16} /></div>
+
+        {/* Want List */}
+        <div>
+          <p className="text-xs font-bold text-blue-500 mb-1">WANT (想要):</p>
+          <div className="space-y-2">
+            {wants.map((w: any, i: number) => (
+              <div key={i} className="border border-blue-100 bg-blue-50 p-2 rounded text-sm">
+                <div className="font-bold text-blue-800">{w.code}</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {w.groups.map((g: string) => (
+                    <Badge key={g} variant="outline" className="bg-white text-blue-600 border-blue-200 text-[10px] h-5">
+                      {g}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Reward */}
+        {request.reward && (
+          <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-sm font-medium border border-amber-100 mt-auto">
+            <Gem size={16} />
+            <span>Reward: {request.reward}</span>
+          </div>
+        )}
+
+        {/* Contact Button */}
+        {!isOwnRequest && (
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="w-full flex gap-2 items-center">
-                {contactMethod === 'WhatsApp' ? <MessageCircle size={18}/> : <Mail size={18}/>}
-                聯絡 {contactMethod}
+              <Button className="w-full mt-2 gap-2">
+                {contactMethod === 'WhatsApp' ? <MessageCircle size={16}/> : <Mail size={16}/>}
+                Contact {contactMethod}
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>聯絡同學</DialogTitle>
-                <DialogDescription>請使用以下方式聯繫對方。</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="p-3 bg-gray-50 rounded-md border text-sm text-gray-600 break-all select-all">
-                  {contactDetail}
-                </div>
-                {request.reward && (
-                  <p className="text-sm text-amber-600">✨ 對方提供報酬: {request.reward}</p>
-                )}
-                <div className="space-y-2">
-                  <Label>預設訊息模板</Label>
-                  <div className="relative">
-                    <Textarea readOnly value={messageTemplate} className="h-24 resize-none pr-10" />
-                    <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-6 w-6" onClick={copyToClipboard}>
-                      <Copy size={14} />
-                    </Button>
-                  </div>
-                </div>
+              <DialogHeader><DialogTitle>Contact Info</DialogTitle></DialogHeader>
+              <div className="p-4 bg-slate-50 rounded text-center text-lg font-medium break-all select-all">
+                {contactDetail}
               </div>
-              <DialogFooter className="sm:justify-between gap-2">
-                <Button variant="outline" onClick={copyToClipboard} className="w-full sm:w-auto">
-                  <Copy className="mr-2 h-4 w-4"/> 複製訊息
-                </Button>
-                {contactMethod === 'WhatsApp' ? (
-                  <Button asChild className="w-full sm:w-auto bg-[#25D366] hover:bg-[#128C7E]">
-                    <a href={getWhatsAppLink()} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="mr-2 h-4 w-4"/> 開啟 WhatsApp
-                    </a>
-                  </Button>
-                ) : (
-                  <Button asChild className="w-full sm:w-auto">
-                    <a href={`mailto:${contactDetail}?subject=Swap Request&body=${encodeURIComponent(messageTemplate)}`}>
-                      <Mail className="mr-2 h-4 w-4"/> 發送郵件
-                    </a>
+              <DialogFooter>
+                <Button variant="outline" onClick={copyToClipboard}><Copy className="mr-2 h-4 w-4"/> Copy Msg</Button>
+                {contactMethod === 'WhatsApp' && (
+                  <Button asChild className="bg-[#25D366] hover:bg-[#128C7E]">
+                    <a href={getWhatsAppLink()} target="_blank">Open WhatsApp</a>
                   </Button>
                 )}
               </DialogFooter>

@@ -27,10 +27,8 @@ export default async function Home({
     .from('swap_requests')
     .select(`
       *,
-      profiles:user_id (contact_method, contact_detail),
-      course_sections:have_section_id (
-        course_code, group, type, day, time, venue
-      )
+      profiles:user_id (contact_method, contact_detail)
+      // 注意：不再需要查詢 course_sections，因為資料已經存入 JSONB
     `)
     .eq('status', 'OPEN')
     .order('created_at', { ascending: false })
