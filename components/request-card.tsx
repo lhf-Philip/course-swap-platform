@@ -86,7 +86,12 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
                 </Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Report</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Report</DialogTitle>
+                  <DialogDescription>
+                    Please describe why you are reporting this request.
+                  </DialogDescription>
+                </DialogHeader>
                 <Textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="Reason..." />
                 <Button onClick={handleReport} variant="destructive">Submit</Button>
               </DialogContent>
@@ -173,7 +178,12 @@ export default function RequestCard({ request, currentUserId }: RequestCardProps
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Contact Info</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Contact Info</DialogTitle>
+                <DialogDescription>
+                  Here is the contact information provided by the user.
+                </DialogDescription>
+              </DialogHeader>
               <div className="p-4 bg-slate-50 rounded text-center text-lg font-medium break-all select-all">
                 {contactDetail}
               </div>

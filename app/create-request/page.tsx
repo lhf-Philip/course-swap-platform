@@ -1,18 +1,14 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { Check, ChevronsUpDown, X, Gem, Plus, Trash2, HelpCircle, BookOpen } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { X, Gem, Plus, Trash2, BookOpen, HelpCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import Link from "next/link"
 
@@ -59,30 +55,20 @@ export default function CreateRequestPage() {
   const supabase = createClient()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [courses, setCourses] = useState<any[]>([])
 
-  // Have
+  // Have States (Course & Group)
   const [haveCode, setHaveCode] = useState<string[]>([])
   const [haveGroup, setHaveGroup] = useState<string[]>([])
   const [haveList, setHaveList] = useState<any[]>([])
 
-  // Want
+  // Want States (Course & Groups)
   const [tempWantCode, setTempWantCode] = useState<string[]>([])
   const [tempWantGroups, setTempWantGroups] = useState<string[]>([])
   const [wantList, setWantList] = useState<any[]>([])
 
   const [reward, setReward] = useState("")
-  const [openHave, setOpenHave] = useState(false)
-  const [openWant, setOpenWant] = useState(false)
 
-  useEffect(() => {
-    const f = async () => {
-      const { data } = await supabase.from('courses').select('code, title').order('code')
-      if(data) setCourses(data)
-    }
-    f()
-  }, [])
-
+  // Add Have Item
   const addHaveItem = () => {
     if (haveCode.length === 0 || haveGroup.length === 0) { toast.error("請輸入科目和班別"); return }
     const newItem = {
@@ -96,9 +82,10 @@ export default function CreateRequestPage() {
     setHaveGroup([])
   }
 
+  // Add Want Item
   const addWantItem = () => {
     if (tempWantCode.length === 0 || tempWantGroups.length === 0) { toast.error("請輸入想要科目和班別"); return }
-    if (wantList.some(w => w.code === tempWantCode[0])) { toast.error("已存在"); return }
+    if (wantList.some(w => w.code === tempWantCode[0])) { toast.error("此科目已在列表中"); return }
     
     setWantList([...wantList, { code: tempWantCode[0], groups: tempWantGroups }])
     setTempWantCode([])
@@ -134,7 +121,6 @@ export default function CreateRequestPage() {
   return (
     <div className="container mx-auto py-10 px-4 max-w-2xl">
       <Card className="relative overflow-visible">
-        {/* X Close Button */}
         <Link href="/" className="absolute right-4 top-4 p-2 text-gray-500 hover:text-black hover:bg-slate-100 rounded-full transition-colors z-50">
           <X size={24} />
         </Link>
@@ -142,34 +128,34 @@ export default function CreateRequestPage() {
         <CardHeader className="flex flex-row items-center justify-center relative">
           <CardTitle className="text-2xl">建立交換請求</CardTitle>
           
-          {/* Help Modal Trigger */}
+          {/* Help Modal (已修復 Warning) */}
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="absolute left-4 top-4 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
                 <HelpCircle size={24} />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md" aria-describedby="help-desc">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <BookOpen className="text-blue-600"/> 使用教學
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription id="help-desc">
                   只需三個步驟，輕鬆發布你的交換需求。
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4 text-sm text-gray-700">
                 <div className="bg-slate-50 p-3 rounded-lg border">
                   <strong className="text-slate-900 block mb-1">1. 我持有的課堂 (Have)</strong>
-                  選擇你目前手上的科目，並輸入班別（例如 B01A）。你可以添加多個持有課堂。
+                  輸入你手上的科目代碼 (e.g. SEHH1071) 和班別 (e.g. B01A)。
                 </div>
                 <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                   <strong className="text-blue-900 block mb-1">2. 我想要的課堂 (Want)</strong>
-                  選擇你想換的科目，並輸入你接受的班別（例如 201, Tut A）。輸入 "ANY" 代表任何班別都接受。
+                  輸入你想換的科目，並輸入你接受的班別。你可以輸入 "ANY" 表示不限班別。
                 </div>
                 <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
                   <strong className="text-amber-900 block mb-1">3. 報酬 (Optional)</strong>
-                  提供免費午餐或小費可以增加交換成功的機率喔！
+                  提供免費午餐或小費可以增加交換成功的機率。
                 </div>
               </div>
             </DialogContent>
@@ -178,7 +164,7 @@ export default function CreateRequestPage() {
 
         <CardContent className="space-y-8">
           
-          {/* Have */}
+          {/* === 1. Have Section === */}
           <div className="space-y-4 border-b pb-6">
             <h3 className="font-semibold text-lg flex items-center gap-2"><span className="bg-slate-100 px-2 py-1 rounded text-sm">1</span>我持有的課堂</h3>
             {haveList.length > 0 && <div className="flex flex-col gap-2 mb-2">{haveList.map(h => (
@@ -190,18 +176,18 @@ export default function CreateRequestPage() {
             
             <div className="p-4 bg-slate-50 border border-dashed rounded-lg space-y-3">
               <div>
-                <Label className="text-xs mb-1 block">科目 (Course)</Label>
-                <Popover open={openHave} onOpenChange={setOpenHave}>
-                    <PopoverTrigger asChild><Button variant="outline" className="w-full justify-between bg-white">{haveCode[0] || "Select..."}<ChevronsUpDown className="h-4 w-4 opacity-50"/></Button></PopoverTrigger>
-                    <PopoverContent className="p-0 w-[200px]"><Command><CommandInput placeholder="Search..."/><CommandList><CommandGroup>{courses.map(c => <CommandItem key={c.code} value={c.code} onSelect={v => {setHaveCode([v.toUpperCase()]); setOpenHave(false)}}><Check className={cn("mr-2 h-4 w-4", haveCode[0]===c.code?"opacity-100":"opacity-0")}/>{c.code}</CommandItem>)}</CommandGroup></CommandList></Command></PopoverContent>
-                </Popover>
+                <Label className="text-xs mb-1 block">科目代碼 (Course Code)</Label>
+                <TagInput placeholder="e.g. SEHH2042" tags={haveCode} setTags={setHaveCode} maxTags={1} />
               </div>
-              <div><Label className="text-xs mb-1 block">班別 (Group)</Label><TagInput placeholder="e.g. 201" tags={haveGroup} setTags={setHaveGroup} maxTags={1}/></div>
+              <div>
+                <Label className="text-xs mb-1 block">班別 (Group/Class)</Label>
+                <TagInput placeholder="e.g. B01A, 201" tags={haveGroup} setTags={setHaveGroup} maxTags={1}/>
+              </div>
               <Button onClick={addHaveItem} className="w-full" variant="secondary" disabled={haveCode.length===0 || haveGroup.length===0}><Plus className="mr-2"/> 加入</Button>
             </div>
           </div>
 
-          {/* Want */}
+          {/* === 2. Want Section === */}
           <div className="space-y-4 border-b pb-6">
             <h3 className="font-semibold text-lg flex items-center gap-2 text-blue-600"><span className="bg-blue-100 px-2 py-1 rounded text-sm">2</span>我想要的課堂</h3>
             {wantList.length > 0 && <div className="flex flex-col gap-2 mb-2">{wantList.map(w => (
@@ -213,18 +199,18 @@ export default function CreateRequestPage() {
 
             <div className="p-4 bg-slate-50 border border-dashed rounded-lg space-y-3">
               <div>
-                <Label className="text-xs mb-1 block">想要科目</Label>
-                <Popover open={openWant} onOpenChange={setOpenWant}>
-                    <PopoverTrigger asChild><Button variant="outline" className="w-full justify-between bg-white">{tempWantCode[0] || "Select..."}<ChevronsUpDown className="h-4 w-4 opacity-50"/></Button></PopoverTrigger>
-                    <PopoverContent className="p-0 w-[200px]"><Command><CommandInput placeholder="Search..."/><CommandList><CommandGroup>{courses.map(c => <CommandItem key={c.code} value={c.code} onSelect={v => {setTempWantCode([v.toUpperCase()]); setOpenWant(false)}}><Check className={cn("mr-2 h-4 w-4", tempWantCode[0]===c.code?"opacity-100":"opacity-0")}/>{c.code}</CommandItem>)}</CommandGroup></CommandList></Command></PopoverContent>
-                </Popover>
+                <Label className="text-xs mb-1 block">想要科目 (Subject)</Label>
+                <TagInput placeholder="e.g. LCH1019" tags={tempWantCode} setTags={setTempWantCode} maxTags={1} />
               </div>
-              <div><Label className="text-xs mb-1 block">想要班別 (可多選)</Label><TagInput placeholder="e.g. Any, 201" tags={tempWantGroups} setTags={setTempWantGroups}/></div>
+              <div>
+                <Label className="text-xs mb-1 block">想要班別 (可多選)</Label>
+                <TagInput placeholder="e.g. Any, 201, B01" tags={tempWantGroups} setTags={setTempWantGroups}/>
+              </div>
               <Button onClick={addWantItem} className="w-full" variant="secondary" disabled={tempWantCode.length===0 || tempWantGroups.length===0}><Plus className="mr-2"/> 加入</Button>
             </div>
           </div>
 
-          {/* Reward */}
+          {/* === 3. Reward === */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg flex items-center gap-2 text-amber-600"><span className="bg-amber-100 px-2 py-1 rounded text-sm">3</span>報酬 (Optional)</h3>
             <div className="relative"><Gem className="absolute left-3 top-2.5 h-5 w-5 text-amber-500"/><Input placeholder="e.g. Free Lunch..." className="pl-10" value={reward} onChange={e => setReward(e.target.value)}/></div>
