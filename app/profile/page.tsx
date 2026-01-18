@@ -11,19 +11,16 @@ export default async function ProfilePage() {
 
   if (!user) redirect('/login')
 
-  // 1. Fetch Profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const [profileRes, postsRes] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase.from('swap_requests')
+      .select(`*, profiles:user_id (contact_method, contact_detail, email)`)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+  ])
 
-  // 2. Fetch User's Posts
-  const { data: posts } = await supabase
-    .from('swap_requests')
-    .select(`*, profiles:user_id (contact_method, contact_detail, email)`)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const profile = profileRes.data
+  const posts = postsRes.data
 
   return (
     <main className="min-h-screen bg-gray-50">
